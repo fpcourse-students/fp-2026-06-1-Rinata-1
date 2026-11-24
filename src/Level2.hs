@@ -17,8 +17,20 @@ import Text.Read (readMaybe)
 -- пары, правое поддерево. Первая компонента пары по-прежнему игнорируется.
 -- Выберите минимально необходимый набор методов. Законы Ord — лекция 6.
 
-todoImpl ''Ord ''IntTree
-
+instance Ord IntTree where
+  compare IntLeaf IntLeaf = EQ
+  compare IntLeaf (IntNode _ _ _) = LT
+  compare (IntNode _ _ _) IntLeaf = GT
+  compare (IntNode l1 (_, a) r1) (IntNode l2 (_, b) r2) = case compare l1 l2 of
+    LT -> LT
+    GT -> GT
+    EQ -> case compare a b of
+      LT -> LT
+      GT -> GT
+      EQ -> case compare r1 r2 of
+        LT -> LT
+        GT -> GT
+        EQ -> EQ
 
 -- 2.2. Циклический перебор.
 -- Реализуйте класс типов CycleEnum. Обе его функции cycSucc и cycPred
@@ -31,8 +43,19 @@ class CycleEnum a where
   cycSucc :: a -> a
   cycPred :: a -> a
 
-todoImpl ''CycleEnum ''Bool
-todoImpl ''CycleEnum ''Int8
+instance CycleEnum Bool where
+  cycSucc True = False
+  cycSucc False = True
+  cycPred True = False
+  cycPred False = True
+
+instance CycleEnum Int8 where
+  cycSucc x
+    |x == maxBound = minBound
+    |otherwise = succ x
+  cycPred x
+    |x == minBound = maxBound
+    |otherwise = pred x
 
 
 -- 2.3. Обёртка для циклического перебора.
@@ -42,7 +65,13 @@ todoImpl ''CycleEnum ''Int8
 newtype Cycling a = Cycling a
   deriving newtype (Eq, Show, Bounded, Enum)
 
-todoImpl ''CycleEnum ''Cycling
+instance (Bounded a, Eq a, Enum a) => CycleEnum (Cycling a) where
+  cycSucc x
+    |x == maxBound = minBound
+    |otherwise = succ x
+  cycPred x
+    |x == minBound = maxBound
+    |otherwise = pred x
 
 
 -- 2.4. Печать строк матрицы.
@@ -56,7 +85,9 @@ todoImpl ''CycleEnum ''Cycling
 newtype Matrix a = Matrix [NonEmpty a]
   deriving Eq
 
-todoImpl ''Show ''Matrix
+instance Show a => Show (Matrix a) where
+  show (Matrix []) = "EMPTY"
+  show (Matrix xs) = List.intercalate "\n" (map (show . NE.toList) xs)
 
 
 -- 2.5. Разберите показанную матрицу.
@@ -82,7 +113,10 @@ parseMatrix raw = case lines raw of
         Just parsedRest -> Just (parsedRow : parsedRest)
 
     parseRow :: Read b => String -> Maybe (NonEmpty b)
-    parseRow = todo "2.5"
+    parseRow s = case readMaybe s of
+      Nothing -> Nothing
+      Just [] -> Nothing
+      Just (x:xs) -> Just (x :| xs)
 
 
 -- 2.6. Сравнение структуры пары.
@@ -91,7 +125,8 @@ parseMatrix raw = case lines raw of
 -- сравните её через Eq, а второй компонентой пренебрегите.
 -- Напишите инстанс целиком, выбрав необходимые ограничения.
 
-todoImpl ''StructEq ''(,)
+instance Eq e => StructEq ((,) e) where
+  (==#) (a, _) (b, _) = a == b
 
 
 -- 2.7. Функтор внутри списка, функции и пары.
@@ -104,4 +139,5 @@ todoImpl ''StructEq ''(,)
 newtype PairReaderList e p a = PairReaderList
   { getPairReaderList :: [e -> (p, a)] }
 
-todoImpl ''Functor ''PairReaderList
+instance Functor (PairReaderList e p) where
+  fmap f (PairReaderList xs) = PairReaderList (map (fmap (fmap f)) xs)
